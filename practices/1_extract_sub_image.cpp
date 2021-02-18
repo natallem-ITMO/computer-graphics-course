@@ -30,11 +30,13 @@ size_t IX(size_t x, size_t y) {
 }
 
 int main(int argc, char *argv[]) {
+    std::string folder_prefix = "..\\pictures\\";
+    std::string file_name = "field";
     if (!read_arguments(argc, argv)) {
         return 0;
     }
 
-    std::ifstream input("..\\pictures\\hello.pgm");
+    std::ifstream input(folder_prefix + "input_pictures\\"+file_name + ".pgm", std::ios_base::binary);
 
     read_header(input);
 
@@ -44,7 +46,7 @@ int main(int argc, char *argv[]) {
         size_t size = width * height;
         std::vector<char> bytes = read_image(input);
         input.read(&bytes[0], size);
-        std::ofstream output("..\\pictures\\hello_sub_image.pgm");
+        std::ofstream output(folder_prefix + "output_pictures\\"+file_name + ".pgm", std::ios_base::binary);
         write_header(output);
         write_sub_image(output, bytes);
         output.close();
@@ -54,14 +56,21 @@ int main(int argc, char *argv[]) {
 }
 
 bool read_arguments(int argc, char *argv[]) {
-    if (argc != 4) {
-        std::cerr << "Incorrect arguments number\n";
+    if (argc != 5) {
+        std::cerr << "Incorrect arguments number\n"
+                  << "Usage : <program name> <x0> <y0> <sub image width> <sub image height>\n";
         return false;
     }
-    x0 = std::stoi(argv[1]);
-    y0 = std::stoi(argv[2]);
-    sub_width = std::stoi(argv[3]);
-    sub_height = std::stoi(argv[4]);
+    try {
+        x0 = std::stoi(argv[1]);
+        y0 = std::stoi(argv[2]);
+        sub_width = std::stoi(argv[3]);
+        sub_height = std::stoi(argv[4]);
+    } catch (std::invalid_argument &ex) {
+        std::cerr << "Cannot parse argument as integer\n"
+                  << "Usage : <program name> <x0> <y0> <sub image width> <sub image height>\n";
+        return false;
+    }
     return true;
 }
 
