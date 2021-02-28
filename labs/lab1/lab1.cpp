@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
         write_header(output);
         modification_functions[mode](output, input_image_buffer);
     } catch (const std::bad_alloc &e) {
-        std::cerr << "Allocation for input image bugger failed: " << e.what() << '\n';
+        std::cerr << "Allocation for input image buffer failed: " << e.what() << '\n';
         error = true;
         goto free_resources;
     }
