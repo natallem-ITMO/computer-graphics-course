@@ -3,4 +3,8 @@ project(Graphics)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(Graphics practices/1_extract_sub_image.cpp)
+add_executable(Graphics
+#        practices/1_extract_sub_image.cpp
+        labs/lab1/lab1.cpp
+
+        )
