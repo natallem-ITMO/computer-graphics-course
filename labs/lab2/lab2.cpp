@@ -60,8 +60,8 @@ pixel_d from_YCbCr_to_RGB(pixel_d ycbcr, bool is_709 = false) {
     double Kr = 0.299;
     double Kg = 0.587;
     if (is_709) {
-        double Kr = 0.2126;
-        double Kg = 0.7152;
+        Kr = 0.2126;
+        Kg = 0.7152;
     }
     double Kb = 1 - Kr - Kg;
     double Y = ycbcr.x;
@@ -77,9 +77,8 @@ pixel_d from_RGB_to_YCbCr(pixel_d rgb, bool is_709 = false) {
     double Kr = 0.299;
     double Kg = 0.587;
     if (is_709) {
-        double Kr = 0.2126;
-        0.7152;
-        double Kg = 0.7152;
+         Kr = 0.2126;
+         Kg = 0.7152;
     }
     double Kb = 1 - Kr - Kg;
     double R = rgb.x;
@@ -263,19 +262,6 @@ const std::vector<modife_func_ptr_t> modification_from_rgb = {
         &from_RGB_to_YCoCg,
         &to_CMY,
 };
-
-std::ostream &operator<<(std::ostream &os, const pixel_ch &dt) {
-    os << "X=" << round(dt.x) << " Y=" << round(dt.y) << " Z=" << round(dt.z) << '\n';
-    return os;
-}
-
-inline bool operator==(const pixel_ch &lhs, const pixel_ch &rhs) {
-    return (lhs.x == rhs.x && lhs.y == rhs.y && lhs.z == rhs.z);
-}
-
-inline bool operator!=(const pixel_ch &lhs, const pixel_ch &rhs) {
-    return !(lhs == rhs);
-}
 
 struct file_worker {
     file_worker(bool &error) : error(error) {}
@@ -573,93 +559,6 @@ void transform() {
     }
 }
 
-void debug() {
-
-//    size_t w = 125 * 51;
-//    size_t h = 51 * 51;
-//    std::cout << 125 * 51 << '\n';
-//    std::cout << 51 * 51 << '\n';
-//    output_1.output_file_name = "B:\\Projects\\GitProjects\\Graphics\\pictures\\output_pictures\\natasha.ppm";
-//    output_1.set_header_for_output_file(false, w, h, 255);
-//    output_1.open_output_file();
-//    output_1.write_header();
-    for (unsigned int r = 0; r <= 255; r++) {
-        for (unsigned int g = 0; g <= 255; g++) {
-            for (unsigned int b = 0; b <= 255; b++) {
-                pixel_ch input((unsigned char) r, (unsigned char) g,
-                               (unsigned char) b);
-
-                pixel_d toYCbCr = from_RGB_to_YCbCr_601(input);
-                pixel_d toRGB = from_YCbCr_601_to_RGB(toYCbCr);
-                pixel_d RGB = from_RGB_to_RGB(toRGB);
-                pixel_ch after = RGB;
-                if (input != after) {
-                    std::cout << "ALF\n";
-                }
-
-            }
-        }
-    }
-}
-
-void debug1() {
-
-    file_worker natasha(error);
-    file_worker denis(error);
-    natasha.input_file_name = "B:\\Projects\\GitProjects\\Graphics\\pictures\\output_pictures\\spb_n.ppm";;
-    denis.input_file_name = "B:\\Projects\\GitProjects\\Graphics\\pictures\\output_pictures\\spb_d.ppm";;
-    natasha.open_input_file();
-    denis.open_input_file();
-    natasha.read_header(false);
-    denis.read_header(false);
-    natasha.read_buffer();
-    denis.read_buffer();
-    if (error) {
-        int x = 10;
-    }
-    if (!natasha.compare_with_other_input_file(denis)) {
-        std::cout << "OOOO\n";
-    }
-    int counter = 0;
-    int counter1 = 0;
-    int counter2 = 0;
-    int counter3 = 0;
-    int counter4 = 0;
-    int counter_all = 0;
-    for (size_t i = 0; i < natasha.size; i++) {
-
-        pixel_ch n((unsigned char) natasha.input_buffer[3 * i], (unsigned char) natasha.input_buffer[3 * i + 1],
-                   (unsigned char) natasha.input_buffer[3 * i + 2]);
-        pixel_ch d((unsigned char) denis.input_buffer[3 * i], (unsigned char) denis.input_buffer[3 * i + 1],
-                   (unsigned char) denis.input_buffer[3 * i + 2]);
-        if (d != n) {
-            ++counter_all;
-            if (d.x == 255 && n.x == 0) {
-                if (counter == 0) std::cout << "d.x == 255 && n.x == 0 " << i << '\n';
-                ++counter;
-            } else if (d.x == 0 && n.x == 255) {
-                if (counter1 == 0) std::cout << "d.x == 0 && n.x == 255 " << i << '\n';
-                ++counter1;
-            } else if (d.y == 0 && n.y == 255) {
-                if (counter2 == 0) std::cout << "d.y == 0 && n.y == 255 " << i << '\n';
-                ++counter2;
-            } else if (d.z == 255 && n.z == 0) {
-                if (counter3 == 0) std::cout << "d.z == 255 && n.z == 0 " << i << '\n';
-                ++counter3;
-            } else if (d.z == 0 && n.z == 255) {
-                if (counter4 == 0) std::cout << "d.z == 0 && n.z == 255 " << i << '\n';
-                ++counter4;
-            } else { std::cout << "not equal " << i << " \nd = " << d << "n = " << n; }
-        }
-    }
-    std::cout << counter << '\n';
-    std::cout << counter1 << '\n';
-    std::cout << counter2 << '\n';
-    std::cout << counter3 << '\n';
-    std::cout << counter4 << '\n';
-    std::cout << counter_all << '\n';
-}
-
 int main(int argc, char *argv[]) {
     if (!read_arguments(argc, argv)) {
         return 1;
@@ -722,9 +621,5 @@ int main(int argc, char *argv[]) {
     }
     transform();
 
-    if (error) {
-        return 1;
-    }
     return 0;
 }
-
