@@ -7,7 +7,6 @@
 #include <map>
 #include <iomanip>
 #include <cassert>
-#include <numeric>
 #include <random>
 #include <functional>
 
@@ -472,35 +471,9 @@ bool read_arguments(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-    bool testing = true;
 
-    if (testing) {
-        int argct = 7;
-        char **argvt = new char *[argct];
-        argvt[0] = "lab3.exe";
-        argvt[1] = "B:\\Projects\\GitProjects\\Graphics\\pictures\\input_pictures\\field_6.pgm";
-        argvt[2] = "B:\\Projects\\GitProjects\\Graphics\\pictures\\output_pictures\\field_2_6.pgm";
-        argvt[3] = "1"; // gradient 0 or 1
-        argvt[4] = "4"; // dithering
-        argvt[5] = "3"; // bits 1..8
-        argvt[6] = "2.2"; // 0 - sRGB, or else
-        /*
-0 – Нет дизеринга;
-1 – Ordered (8x8);
-2 – Random;
-3 – Floyd–Steinberg;
-4 – Jarvis, Judice, Ninke;
-5 - Sierra (Sierra-3);
-6 - Atkinson;
-7 - Halftone (4x4, orthogonal);
-         */
-        if (!read_arguments(argct, argvt)) {
-            return 1;
-        }
-    } else {
-        if (!read_arguments(argc, argv)) {
-            return 1;
-        }
+    if (!read_arguments(argc, argv)) {
+        return 1;
     }
 
     input.input_file_name = input_file_name;
@@ -521,7 +494,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     if (input_dithering <= 6 && input_dithering >= 3) {
-        if (!error_buffer.alloc(input.width, input.height)){
+        if (!error_buffer.alloc(input.width, input.height)) {
             return 1;
         }
         error_buffer.fill_zeros();
@@ -529,7 +502,7 @@ int main(int argc, char *argv[]) {
     if (input_gradient == 1) {
         gradient_buffer.fill_gradient();
     } else {
-        if (!input.read_buffer()){
+        if (!input.read_buffer()) {
             return 1;
         }
         gradient_buffer.fill_with_data();
