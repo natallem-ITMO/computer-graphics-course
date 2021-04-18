@@ -7,6 +7,7 @@
 #include <map>
 #include <iomanip>
 #include <cassert>
+#include <string>
 #include <random>
 #include <functional>
 
@@ -271,7 +272,8 @@ void dithering_error_not_saving(std::function<double(int, int)> error_get_func) 
             double diff = next_gamma - prev_gamma;
             double dith_error = error_get_func(x, y);
             double new_value_with_error = cur_val_gamma + diff * dith_error;
-            uchar result = (new_value_with_error >= next_gamma) ? next : prev;
+            double middle = (prev_gamma + next_gamma) / 2.;
+            uchar result = (new_value_with_error > middle) ? next : prev;
             output.output << result;
         }
     }
@@ -291,7 +293,7 @@ void ordered_dithering() {
     };
 
     static const auto get_error = [](int x, int y) -> double {
-        return threshold_matrix[y % 8][x % 8] / 64.;
+        return (threshold_matrix[y % 8][x % 8] + 0.5) / 64. - 0.5;
     };
     dithering_error_not_saving(get_error);
 }
@@ -304,7 +306,7 @@ void random_dithering() {
         while (d == 1.0) {
             d = dis(gen);
         }
-        return d;
+        return d - 0.5;
     };
     dithering_error_not_saving(get_error);
 }
@@ -403,7 +405,7 @@ void halftone_dithering() {
             {5,  9,  3,  1}
     };
     static const auto get_error = [](int x, int y) -> double {
-        return threshold_matrix[y % 4][x % 4] / 16.;
+        return (threshold_matrix[y % 4][x % 4]) / 17. - 0.5;
     };
     dithering_error_not_saving(get_error);
 }
@@ -471,11 +473,9 @@ bool read_arguments(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-
     if (!read_arguments(argc, argv)) {
         return 1;
     }
-
     input.input_file_name = input_file_name;
     if (!input.open_input_file()) {
         return 1;
