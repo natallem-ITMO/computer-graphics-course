@@ -235,6 +235,15 @@ const std::vector<modife_func_ptr_t> kernel_functions = {
         &lanczos3_kernel,
         &bc_spline_kernel
 };
+
+const std::vector<double> radius_for_karnel = {
+       1,
+       1,
+       3,
+       2
+};
+
+
 using point = std::complex<double>;
 using point_i = std::complex<int>;
 
@@ -260,7 +269,7 @@ point transform_to_input_coordinates(point c) {
 std::vector<double> find_nearest_coordinates(double x_input, int length_input, double coeff) {
     std::vector<double> result;
     double max, min, start, end;
-    double radius = 3;
+    double radius = radius_for_karnel[input_scaling_way];
     if (coeff > 1) {
         radius *= coeff;
     }
@@ -307,7 +316,7 @@ std::vector<int> get_pixels_by_coordinate(const std::vector<double> &xs, int len
 }
 
 double get_color_with_kernel(const std::vector<double> &color_values, const std::vector<double> &distance_values,
-                             double point, double &picked_distance) {
+                             double point) {
     double result = 0;
     double coeff_sum = 0;
     std::vector<double> percentage_values;
@@ -323,10 +332,6 @@ double get_color_with_kernel(const std::vector<double> &color_values, const std:
     for (int i = 0; i < color_values.size(); ++i) {
         double color = color_values[i];
         double percentage = percentage_values[i];
-        if (percentage == 1) {
-            picked_distance = distance_values[i];
-//            printf("distance = %f point = %f\n", distance_values[i] , point);
-        }
         result += color * percentage;
     }
     return result;
@@ -365,21 +370,21 @@ void transform_points(point &p, std::vector<double> &points, double coeff, bool 
 }
 
 void get_color_for_result_pixel(int x, int y) {
-    if (x == 64 && y == 0){
+    if (x == 64 && y == 0) {
         int xsd = 10;
     }
     double scale_coeff_width = input.width / double(result_width);
     double scale_coeff_height = input.height / double(result_height);
     point result_coordinate = get_coordinates_by_pixel(x, y, result_width, result_height);
     point input_coordinate = transform_to_input_coordinates(result_coordinate);
-    point_i result_pixel = get_pixel_by_coordinates(result_coordinate, input.width, input.height);
+    point_i result_pixel = get_pixel_by_coordinates(result_coordinate, result_width, result_height);
     point_i input_pixel = get_pixel_by_coordinates(input_coordinate, input.width, input.height);
-    if (result_pixel.real() != x || result_pixel.imag() != y){
+    if (result_pixel.real() != x || result_pixel.imag() != y) {
         printf("result_pixel failed x: %d %d y : %d %d\n", x, result_pixel.real(), y, result_pixel.imag());
     }
-    if (input_pixel.real() != x-1 || input_pixel.imag() != y + 1){
-        printf("input_pixel failed x: %d %d y : %d %d\n", input_pixel.real(),  x-1,  input_pixel.imag(), y+1);
-    }
+  /*  if (input_pixel.real() != x - 1 || input_pixel.imag() != y + 1) {
+        printf("input_pixel failed x: %d %d y : %d %d\n", input_pixel.real(), x - 1, input_pixel.imag(), y + 1);
+    }*/
     std::vector<double> neighbours_width = find_nearest_coordinates(input_coordinate.real(), input.width,
                                                                     scale_coeff_width);
     std::vector<double> neighbours_height = find_nearest_coordinates(input_coordinate.imag(), input.height,
@@ -403,17 +408,10 @@ void get_color_for_result_pixel(int x, int y) {
             for (auto x_pixel : neighbours_pixels_width) {
                 cur_colors.push_back(to_liniar_space(get_pixel_color(x_pixel, y_pixel, (i_end == 1) ? 0 : i) / 255.));
             }
-            double picked;
-            double ppp = input_coordinate.real();
-            double cur_color = get_color_with_kernel(cur_colors, neighbours_width, input_coordinate.real(), picked);
-            if (picked != ppp) {
-                printf("picked = %f point = %f\n", picked, ppp);
-            }
+            double cur_color = get_color_with_kernel(cur_colors, neighbours_width, input_coordinate.real());
             vertical_colors.push_back(cur_color);
         }
-        double picked;
-        double ppp = input_coordinate.imag();
-        double final_color = get_color_with_kernel(vertical_colors, neighbours_height, input_coordinate.imag(), picked);
+        double final_color = get_color_with_kernel(vertical_colors, neighbours_height, input_coordinate.imag());
         final_color = boarder<double>(to_visual_space(final_color) * 255, 0, 255);
         output.output << (uchar) round(final_color);
     }
@@ -434,9 +432,12 @@ void process_scaling() {
          }
      }*/
 
-   for (int h = 0; h < result_height; ++h) {
+    for (int h = 0; h < result_height; ++h) {
+        if (h%100 == 0)
         printf("%d out of %d \n", h, result_height); // todo delete
         for (int w = 0; w < result_width; ++w) {
+//            printf("\r%d out of %d \n", w, result_width); // todo delete
+
             get_color_for_result_pixel(w, h);
         }
     }
@@ -498,7 +499,7 @@ int main(int argc, char *argv[]) {
 
     };
     bool testing = true;
-    int i = 3;
+    int i = 1;
     double coef_w = 1;
     double coef_h = 1;
     if (testing) {
@@ -511,12 +512,14 @@ int main(int argc, char *argv[]) {
                 "B:\\Projects\\GitProjects\\Graphics\\pictures\\output_pictures\\res_" + name;
         argvt[1] = const_cast<char *>(name_file.c_str());
         argvt[2] = const_cast<char *>(name_file_out.c_str());
-        argvt[3] = const_cast<char *>((std::to_string(int(names[i].second.real() * coef_w))).c_str()); // result width
-        argvt[4] = const_cast<char *>((std::to_string(int(names[i].second.imag() * coef_h))).c_str()); // result width
-        argvt[5] = "1"; // dx
-        argvt[6] = "1"; // dy
-        argvt[7] = "1"; // gamma
-        argvt[8] = "0"; // scaling way
+//        argvt[3] = const_cast<char *>((std::to_string(int(names[i].second.real() * coef_w))).c_str()); // result width
+//        argvt[4] = const_cast<char *>((std::to_string(int(names[i].second.imag() * coef_h))).c_str()); // result width
+        argvt[3] = "1000"; // result width
+        argvt[4] = "1500"; // result width
+        argvt[5] = "0"; // dx
+        argvt[6] = "0"; // dy
+        argvt[7] = "0"; // gamma
+        argvt[8] = "2"; // scaling way
 
         /*
  <способ_масштабирования>:

@@ -12,9 +12,13 @@ add_executable(Graphics
         #        labs/lab2/denis/pnm.h
         #        labs/lab2/denis/space_converter.h
         #        labs/lab3/lab3.cpp
-        #        labs/lab3/denisx/main.cpp
-        #        labs/lab3/denis/mnp.cpp
-        #                labs/lab3/denis/mnp.h
-        #        labs/lab3/shaldin.cpp
-        labs/lab3/lab3.cpp
+
+#                labs/lab3/denis/main.cpp
+#                labs/lab3/denis/mnp.cpp
+#                labs/lab3/denis/mnp.h
+#
+        labs/lab4/lab4.cpp
+
+#                        labs/lab3/shaldin.cpp
+        #        labs/lab4/lab4.cpp
         )
