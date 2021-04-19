@@ -3,13 +3,10 @@
 #include <vector>
 #include <cmath>
 #include <tuple>
-#include <set>
-#include <map>
-#include <iomanip>
 #include <cassert>
-#include <random>
 #include <functional>
 #include <complex>
+#include <string>
 
 static const double MY_PI = atan(1) * 4;
 
@@ -169,7 +166,7 @@ bool program_error = false;
 file_worker input(program_error);
 file_worker output(program_error);
 
-double to_liniar_space(double d) {
+double to_linear_space(double d) {
     if (input_gamma == 0) {
         if (d <= 0.04045) {
             return d / 12.92;
@@ -199,7 +196,7 @@ double nearest_neighbour_kernel(double d) {
     return 1;
 }
 
-double biliniar_kernel(double d) {
+double bilinear_kernel(double d) {
     if (d >= 1 || d <= -1) return 0;
     if (d > 0) {
         return (1 - d);
@@ -231,16 +228,16 @@ using modife_func_ptr_t = double (*)(double);
 
 const std::vector<modife_func_ptr_t> kernel_functions = {
         &nearest_neighbour_kernel,
-        &biliniar_kernel,
+        &bilinear_kernel,
         &lanczos3_kernel,
         &bc_spline_kernel
 };
 
 const std::vector<double> radius_for_karnel = {
-       1,
-       1,
-       3,
-       2
+        1,
+        1,
+        3,
+        2
 };
 
 
@@ -248,7 +245,6 @@ using point = std::complex<double>;
 using point_i = std::complex<int>;
 
 double get_coordinate_by_pixel(int x, int length) {
-//    length -= length % 2;
     double center = (length / 2);
     double res = x - center;
     if (length % 2 == 0)
@@ -294,7 +290,7 @@ std::vector<double> find_nearest_coordinates(double x_input, int length_input, d
 
 int get_pixel_by_coordinate(double x, int length) {
     int xx = x;
-    trunc(xx);
+    xx = trunc(xx);
     if (x < 0) {
         if (x - trunc(xx) != 0)
             --xx;
@@ -370,21 +366,13 @@ void transform_points(point &p, std::vector<double> &points, double coeff, bool 
 }
 
 void get_color_for_result_pixel(int x, int y) {
-    if (x == 64 && y == 0) {
-        int xsd = 10;
-    }
+
     double scale_coeff_width = input.width / double(result_width);
     double scale_coeff_height = input.height / double(result_height);
+
     point result_coordinate = get_coordinates_by_pixel(x, y, result_width, result_height);
     point input_coordinate = transform_to_input_coordinates(result_coordinate);
-    point_i result_pixel = get_pixel_by_coordinates(result_coordinate, result_width, result_height);
-    point_i input_pixel = get_pixel_by_coordinates(input_coordinate, input.width, input.height);
-    if (result_pixel.real() != x || result_pixel.imag() != y) {
-        printf("result_pixel failed x: %d %d y : %d %d\n", x, result_pixel.real(), y, result_pixel.imag());
-    }
-  /*  if (input_pixel.real() != x - 1 || input_pixel.imag() != y + 1) {
-        printf("input_pixel failed x: %d %d y : %d %d\n", input_pixel.real(), x - 1, input_pixel.imag(), y + 1);
-    }*/
+
     std::vector<double> neighbours_width = find_nearest_coordinates(input_coordinate.real(), input.width,
                                                                     scale_coeff_width);
     std::vector<double> neighbours_height = find_nearest_coordinates(input_coordinate.imag(), input.height,
@@ -406,7 +394,7 @@ void get_color_for_result_pixel(int x, int y) {
         for (auto y_pixel : neighbours_pixels_height) {
             std::vector<double> cur_colors;
             for (auto x_pixel : neighbours_pixels_width) {
-                cur_colors.push_back(to_liniar_space(get_pixel_color(x_pixel, y_pixel, (i_end == 1) ? 0 : i) / 255.));
+                cur_colors.push_back(to_linear_space(get_pixel_color(x_pixel, y_pixel, (input.is_P5) ? 0 : i) / 255.));
             }
             double cur_color = get_color_with_kernel(cur_colors, neighbours_width, input_coordinate.real());
             vertical_colors.push_back(cur_color);
@@ -418,26 +406,8 @@ void get_color_for_result_pixel(int x, int y) {
 }
 
 void process_scaling() {
-    /* for (int h = 0; h < result_height; ++h) {
-         printf("%d out of %d \n", h, result_height); // todo delete
-         for (int w = 0; w < result_width; ++w) {
-             int x = w; int y = h;
-             --x;
-             ++y;
-             x = boarder(x, 0,result_width-1);
-             y = boarder(y, 0,result_height-1);
-             output.output << (uchar) input.input_buffer[(x + y * input.width) * 3 + 0];
-             output.output << (uchar) input.input_buffer[(x + y * input.width) * 3 + 1];
-             output.output << (uchar) input.input_buffer[(x + y * input.width) * 3 + 2];
-         }
-     }*/
-
     for (int h = 0; h < result_height; ++h) {
-        if (h%100 == 0)
-        printf("%d out of %d \n", h, result_height); // todo delete
         for (int w = 0; w < result_width; ++w) {
-//            printf("\r%d out of %d \n", w, result_width); // todo delete
-
             get_color_for_result_pixel(w, h);
         }
     }
@@ -485,57 +455,10 @@ bool read_arguments(int argc, char *argv[]) {
     return true;
 }
 
-void tt() {
-    std::cout << trunc(-3.34);
-}
 
 int main(int argc, char *argv[]) {
-    std::vector<std::pair<std::string, std::complex<int>>> names = {
-            {"field.pgm",               std::complex<int>(1920, 1280)},
-            {"color_field.ppm",         std::complex<int>(1280, 853)},
-            {"test_gray.ppm",           std::complex<int>(258, 222)},
-            {"silver_shining_test.ppm", std::complex<int>(128, 191)},
-            {"color_changes_test.ppm",  std::complex<int>(1599, 1066)},
-
-    };
-    bool testing = true;
-    int i = 1;
-    double coef_w = 1;
-    double coef_h = 1;
-    if (testing) {
-        std::string name = names[i].first;
-        int argct = 9;
-        char **argvt = new char *[argct];
-        argvt[0] = "lab3.exe";
-        std::string name_file = "B:\\Projects\\GitProjects\\Graphics\\pictures\\input_pictures\\" + name;
-        std::string name_file_out =
-                "B:\\Projects\\GitProjects\\Graphics\\pictures\\output_pictures\\res_" + name;
-        argvt[1] = const_cast<char *>(name_file.c_str());
-        argvt[2] = const_cast<char *>(name_file_out.c_str());
-//        argvt[3] = const_cast<char *>((std::to_string(int(names[i].second.real() * coef_w))).c_str()); // result width
-//        argvt[4] = const_cast<char *>((std::to_string(int(names[i].second.imag() * coef_h))).c_str()); // result width
-        argvt[3] = "1000"; // result width
-        argvt[4] = "1500"; // result width
-        argvt[5] = "0"; // dx
-        argvt[6] = "0"; // dy
-        argvt[7] = "0"; // gamma
-        argvt[8] = "2"; // scaling way
-
-        /*
- <способ_масштабирования>:
-0 – ближайшая точка (метод ближайшего соседа);
-1 – билинейное;
-2 – Lanczos3;
-3 – BC-сплайны. Для этого способа могут быть указаны ещё два параметра: B и C, по умолчанию 0 и 0.5 (Catmull-Rom).
-
-         */
-        if (!read_arguments(argct, argvt)) {
-            return 1;
-        }
-    } else {
-        if (!read_arguments(argc, argv)) {
-            return 1;
-        }
+    if (!read_arguments(argc, argv)) {
+        return 1;
     }
     input.input_file_name = input_file_name;
     if (!input.open_input_file()) {
