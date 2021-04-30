@@ -189,14 +189,10 @@ bool read_arguments(int argc, char *argv[]) {
 const static size_t color_number = 256;
 std::vector<size_t> histogram(color_number, 0);
 std::vector<double> possibilities(color_number);
-std::vector<double> possibilities_sum(color_number);
 std::vector<double> partial_expectation(color_number);
-std::vector<double> partial_expectation_sum(color_number);
 std::vector<int> thresholds;
 std::vector<int> best_thresholds;
-std::vector<int> best_thresholds_stupid;
 double best_dispersion = 0;
-double best_dispersion_stupid = 0;
 
 void create_histogram() {
     for (int i = 0; i < input.number_of_pixels; ++i) {
@@ -210,65 +206,31 @@ void precalc() {
     for (int i = 0; i < histogram.size(); ++i) {
         possibilities[i] = histogram[i] / N;
     }
-    possibilities_sum[0] = possibilities[0];
-    for (int i = 1; i < histogram.size(); ++i) {
-        possibilities_sum[i] = possibilities_sum[i - 1] + possibilities[i];
-    }
     partial_expectation[0] = 0;
-    for (int i = 0; i < histogram.size(); ++i) {
-        partial_expectation[i] = i * possibilities[i];
-    }
-    partial_expectation_sum[0] = partial_expectation[0];
     for (int i = 1; i < histogram.size(); ++i) {
-        partial_expectation_sum[i] = partial_expectation_sum[i - 1] + partial_expectation[i];
+        partial_expectation[i] = partial_expectation[i-1] +  i * possibilities[i];
+    }
+    for (int i = 1; i < histogram.size(); ++i) {
+        possibilities[i] += possibilities[i - 1];
     }
 }
 
-static const int L = 255;
-
 double get_q_k(int k) {
-    double first_sum = possibilities_sum[thresholds[k]];
+    double first_sum = possibilities[thresholds[k]];
     if (k == 1) {
         return first_sum;
     }
-    double second_sum = possibilities_sum[thresholds[k - 1]];
-//    return first_sum - second_sum;
-    int start = thresholds[k - 1] + 1;
-    int end = thresholds[k];
-    double cur_sum = 0;
-    for (int i = start; i <= end; ++i) {
-        cur_sum += possibilities[i];
-    }
+    double second_sum = possibilities[thresholds[k - 1]];
     return first_sum - second_sum;
-}
-
-double get_q_k_stupid(int k) {
-    int start = thresholds[k - 1] + 1;
-    int end = thresholds[k];
-    double cur_sum = 0;
-    for (int i = start; i <= end; ++i) {
-        cur_sum += possibilities[i];
-    }
-    return cur_sum;
 }
 
 double get_mu_k(int k) {
-    double first_sum = partial_expectation_sum[thresholds[k]];
+    double first_sum = partial_expectation[thresholds[k]];
     if (k == 1) {
         return first_sum;
     }
-    double second_sum = partial_expectation_sum[thresholds[k - 1]];
+    double second_sum = partial_expectation[thresholds[k - 1]];
     return first_sum - second_sum;
-}
-
-double get_mu_k_stupid(int k) {
-    int start = thresholds[k - 1] + 1;
-    int end = thresholds[k];
-    double cur_sum = 0;
-    for (int i = start; i <= end; ++i) {
-        cur_sum += partial_expectation[i];
-    }
-    return cur_sum;
 }
 
 double get_k_component(int k) {
@@ -280,55 +242,11 @@ double get_k_component(int k) {
     return mu_k * mu_k / q_k;
 }
 
-
-double get_k_component_stupid(int k) {
-    double q_k = get_q_k_stupid(k);
-    double mu_k = get_mu_k_stupid(k);
-    if (q_k == 0) {
-        return 0;
-    }
-    return mu_k * mu_k / q_k;
-}
-
-template<typename T>
-void show_vec(std::vector<T> &v, const std::string &message) {
-    std::cout << message << ": ";
-    for (auto t : v) {
-        std::cout << t << ' ';
-    }
-    std::cout << "\n";
-}
-
-
-void check_cur_thresholds_stupid() {
-//    show_vec(thresholds, "current thresholds");
-    double cur_res = 0;
-    for (int i = 1; i <= threshold_number + 1; ++i) {
-        double d = get_k_component_stupid(i);
-        cur_res += d;
-    }
-    if (cur_res > best_dispersion_stupid) {
-        best_dispersion_stupid = cur_res;
-        best_thresholds_stupid = thresholds;
-    }
-}
-
-
 void check_cur_thresholds() {
-//    show_vec(thresholds, "current thresholds");
     double cur_res = 0;
     for (int i = 1; i <= threshold_number + 1; ++i) {
         double d = get_k_component(i);
         cur_res += d;
-/*        double d2 = get_k_component_stupid(i);
-        double eps = 1e-5;
-        std::cout << i << " component=" << d << " res=" << cur_res << " component_stupid=" << d2 << "\n";
-        if (abs(d - d2) > eps){
-            double  diff = abs(d-d2);
-            int x =10;
-            double d = get_k_component(i);
-            double d2 = get_k_component_stupid(i);
-        }*/
     }
     if (cur_res > best_dispersion) {
         best_dispersion = cur_res;
@@ -336,31 +254,18 @@ void check_cur_thresholds() {
     }
 }
 
-
 void rec_threshold_calc(int cur_threshold_num, int prev_value) {
-    for (int i = prev_value + 1; i <= L - threshold_number + (cur_threshold_num - 1); i++) {
+    for (int i = prev_value + 1; i <= (color_number - 1) - threshold_number + (cur_threshold_num - 1); i++) {
         thresholds[cur_threshold_num] = i;
         if (cur_threshold_num != threshold_number) {
             rec_threshold_calc(cur_threshold_num + 1, i);
         } else {
             check_cur_thresholds();
-            check_cur_thresholds_stupid();
         }
     }
-    std::vector<int> &_best_thresholds = best_thresholds;
-    std::vector<int> &_best_thresholds_stupid = best_thresholds_stupid;
-    assert(best_thresholds == best_thresholds_stupid);
 }
 
 void find_best_thresholds() {
-    std::vector<size_t> &_histogram = histogram;
-    std::vector<double> &_possibilities = possibilities;
-    std::vector<double> &_partial_expectation = partial_expectation;
-    std::vector<int> &_thresholds = thresholds;
-    std::vector<int> &_best_thresholds = best_thresholds;
-    std::vector<int> &_best_thresholds_stupid = best_thresholds_stupid;
-    double &_best_dispersion = best_dispersion;
-    double &_best_dispersion_stupid = best_dispersion_stupid;
     create_histogram();
     precalc();
     thresholds.resize(threshold_number + 2);
@@ -387,8 +292,6 @@ void write_result() {
 }
 
 int main(int argc, char *argv[]) {
-
-
     std::vector<std::pair<std::string, int>> names = {
             {"seeds.pgm",       2},
             {"big_seeds.pgm",   3},
@@ -406,11 +309,11 @@ int main(int argc, char *argv[]) {
             {"image_2.pgm",     2},
             {"image_3.pgm",     2},
             {"image_4.pgm",     2},
-            {"woman_hat.pgm",   2},
+            {"woman_hat.pgm",   3},
 //            {"woman_hat.pgm",   4},
     };
     bool testing = true;
-    int i = names.size() - 1;
+    int i = 0; //names.size() - 1;
     if (testing) {
         bool examples = false;
         bool noised = false;
