@@ -235,7 +235,7 @@ struct buffer {
 buffer<double> gradient_buffer;
 buffer<double> error_buffer;
 
-double to_liniar_space(double d) {
+double to_linear_space(double d) {
     if (input_gamma == 0) {
         if (d <= 0.04045) {
             return d / 12.92;
@@ -266,9 +266,9 @@ void dithering_error_not_saving(std::function<double(int, int)> error_get_func) 
         for (int x = 0; x < input.width; ++x) {
             double cur_val = gradient_buffer.get_ref(x, y);
             auto[prev, next] = give_neighbours(cur_val);
-            double prev_gamma = to_liniar_space(prev / 255.);
-            double next_gamma = to_liniar_space(next / 255.);
-            double cur_val_gamma = to_liniar_space(cur_val / (num_of_colors - 1));
+            double prev_gamma = to_linear_space(prev / 255.);
+            double next_gamma = to_linear_space(next / 255.);
+            double cur_val_gamma = to_linear_space(cur_val / (num_of_colors - 1));
             double diff = next_gamma - prev_gamma;
             double dith_error = error_get_func(x, y);
             double new_value_with_error = cur_val_gamma + diff * dith_error;
@@ -333,9 +333,9 @@ void dithering_error_saving(const std::vector<std::vector<int>> &parts, int divi
         for (int x = 0; x < input.width; ++x) {
             double cur_val = gradient_buffer.get_ref(x, y);
             auto[prev, next] = give_neighbours(cur_val);
-            double prev_gamma = to_liniar_space(prev / 255.);
-            double next_gamma = to_liniar_space(next / 255.);
-            double cur_val_gamma = to_liniar_space(cur_val / (num_of_colors - 1));
+            double prev_gamma = to_linear_space(prev / 255.);
+            double next_gamma = to_linear_space(next / 255.);
+            double cur_val_gamma = to_linear_space(cur_val / (num_of_colors - 1));
             double cur_error = error_buffer.get_ref(x, y);
             double cur_value_with_error = cur_val_gamma + cur_error;
             double middle = (prev_gamma + next_gamma) / 2.;
@@ -473,9 +473,46 @@ bool read_arguments(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-    if (!read_arguments(argc, argv)) {
-        return 1;
+    bool testing = true;
+
+    if (testing) {
+        std::string name = "field";
+        int argct = 7;
+        char **argvt = new char *[argct];
+        argvt[0] = "lab3.exe";
+        std::string name_file = "B:\\Projects\\GitProjects\\Graphics\\pictures\\input_pictures\\"+name + ".pgm";
+        argvt[1] = const_cast<char *>(name_file.c_str());
+        argvt[3] = "0"; // gradient 0 or 1
+        argvt[4] = "3"; // dithering
+        argvt[5] = "1"; // bits 1..8
+        argvt[6] = "1"; // 0 - sRGB, or else
+        std::string name_file_out = "B:\\Projects\\GitProjects\\Graphics\\pictures\\output_pictures\\lab_3_ex\\"+
+                name + '_' +
+                std::string(argvt[3]) + '_' +
+                std::string(argvt[4]) + '_' +
+                std::string(argvt[5]) + '_' +
+                std::string(argvt[6]) +
+                + ".pgm";
+        argvt[2] = const_cast<char *>(name_file_out.c_str());
+        /*
+0 – Нет дизеринга;
+1 – Ordered (8x8);
+2 – Random;
+3 – Floyd–Steinberg;
+4 – Jarvis, Judice, Ninke;
+5 - Sierra (Sierra-3);
+6 - Atkinson;
+7 - Halftone (4x4, orthogonal);
+         */
+        if (!read_arguments(argct, argvt)) {
+            return 1;
+        }
+    } else {
+        if (!read_arguments(argc, argv)) {
+            return 1;
+        }
     }
+
     input.input_file_name = input_file_name;
     if (!input.open_input_file()) {
         return 1;

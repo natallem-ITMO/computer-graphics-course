@@ -457,9 +457,59 @@ bool read_arguments(int argc, char *argv[]) {
 
 
 int main(int argc, char *argv[]) {
-    if (!read_arguments(argc, argv)) {
-        return 1;
+    std::vector<std::pair<std::string, std::complex<int>>> names = {
+            {"field.pgm",               std::complex<int>(1920, 1280)},
+            {"color_field.ppm",         std::complex<int>(1280, 853)},
+            {"test_gray.ppm",           std::complex<int>(258, 222)},
+            {"silver_shining_test.ppm", std::complex<int>(128, 191)},
+            {"color_changes_test.ppm",  std::complex<int>(1599, 1066)},
+            {"gray.pgm",                std::complex<int>(400, 347)},
+            {"res_gray.pgm",            std::complex<int>(1600, 1041)},
+            {"faces.pgm",            std::complex<int>(500,500)},
+    };
+    bool testing = true;
+    int i = 7;
+    double coef_w = 3;
+    double coef_h = 4;
+    if (testing) {
+        std::string name = names[i].first;
+        int argct = 9;
+        char **argvt = new char *[argct];
+        argvt[0] = "lab3.exe";
+        std::string name_file = "B:\\Projects\\GitProjects\\Graphics\\pictures\\input_pictures\\" + name;
+        argvt[1] = const_cast<char *>(name_file.c_str());
+        argvt[3] = const_cast<char *>((std::to_string(int(names[i].second.real() * coef_w))).c_str()); // result width
+        argvt[4] = const_cast<char *>((std::to_string(int(names[i].second.imag() * coef_h))).c_str()); // result width
+        argvt[5] = "0"; // dx
+        argvt[6] = "0"; // dy
+        argvt[7] = "0"; // gamma
+        argvt[8] = "0"; // scaling way
+        /*
+ <способ_масштабирования>:
+0 – ближайшая точка (метод ближайшего соседа);
+1 – билинейное;
+2 – Lanczos3;
+3 – BC-сплайны. Для этого способа могут быть указаны ещё два параметра: B и C, по умолчанию 0 и 0.5 (Catmull-Rom).
+         */
+        std::string name_file_out =
+                "B:\\Projects\\GitProjects\\Graphics\\pictures\\output_pictures\\lab_4_ex\\" +
+                std::string(argvt[3]) + "_" +
+                std::string(argvt[4]) + "_" +
+                std::string(argvt[5]) + "_" +
+                std::string(argvt[6]) + "_" +
+                std::string(argvt[7]) + "_" +
+                std::string(argvt[8]) + "_" +
+                name;
+        argvt[2] = const_cast<char *>(name_file_out.c_str());
+        if (!read_arguments(argct, argvt)) {
+            return 1;
+        }
+    } else {
+        if (!read_arguments(argc, argv)) {
+            return 1;
+        }
     }
+
     input.input_file_name = input_file_name;
     if (!input.open_input_file()) {
         return 1;
