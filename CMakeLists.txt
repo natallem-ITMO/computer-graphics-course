@@ -9,6 +9,7 @@ add_executable(Graphics
         #        labs/lab2/lab2.cpp
         #        labs/lab3/lab3.cpp
         #        labs/lab4/lab4.cpp
-        labs/lab5/lab5.cpp
+#        labs/lab5/lab5.cpp
+        labs/lab6/lab6.cpp
 
         )
