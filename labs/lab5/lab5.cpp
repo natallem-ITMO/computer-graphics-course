@@ -165,7 +165,7 @@ file_worker output(program_error);
 
 
 bool read_arguments(int argc, char *argv[]) {
-    static std::string usage = "Usage : lab3.exe <name_of_input_file> <name_of_output_files> <threshold_number>\n";
+    static std::string usage = "Usage : lab5.exe <name_of_input_file> <name_of_output_files> <threshold_number>\n";
     if (argc != 4) {
         std::cerr << "Incorrect arguments number\n" << usage;
         return false;
@@ -174,8 +174,8 @@ bool read_arguments(int argc, char *argv[]) {
     output_file_name = argv[2];
     try {
         threshold_number = std::stoi(argv[3]);
-        if (threshold_number < 2 || threshold_number > 255) {
-            std::cerr << "Incorrect number for threshold (value should be in range [1..255])\n" << usage;
+        if (threshold_number < 2 || threshold_number > 256) {
+            std::cerr << "Incorrect number for threshold (value should be in range [2..256])\n" << usage;
             return false;
         }
         --threshold_number;
@@ -292,64 +292,9 @@ void write_result() {
 }
 
 int main(int argc, char *argv[]) {
-    std::vector<std::pair<std::string, int>> names = {
-            {"seeds.pgm",       2},
-            {"big_seeds.pgm",   3},
-            {"big_seeds.pgm",   2},
-            {"bubbles.pgm",     3},
-            {"bubbles.pgm",     2},
-            {"black_faces.pgm", 2},
-            {"black_faces.pgm", 3},
-            {"woman_hat.pgm",   3},
-            {"moon.pgm",        3},
-            {"portal_tech.pgm", 3},
-            {"road_woman.pgm",  3},
-            {"road_woman.pgm",  4},
-            {"image_1.pgm",     2},
-            {"image_2.pgm",     2},
-            {"image_3.pgm",     2},
-            {"image_4.pgm",     2},
-            {"woman_hat.pgm",   3},
-//            {"woman_hat.pgm",   4},
-    };
-    bool testing = true;
-    int i = 0; //names.size() - 1;
-    if (testing) {
-        bool examples = false;
-        bool noised = false;
-        std::string path_prefix;
-        if (examples) {
-            path_prefix += "7z_examples\\";
-            if (noised) {
-                path_prefix += "noised\\";
-            } else {
-                path_prefix += "blurred\\";
-            }
-        }
-
-
-        std::string name = names[i].first;
-        int classes = names[i].second;
-        int argct = 4;
-        char **argvt = new char *[argct];
-        argvt[0] = "lab5.exe";
-        std::string name_file = "B:\\Projects\\GitProjects\\Graphics\\pictures\\input_pictures\\" + path_prefix + name;
-        argvt[1] = const_cast<char *>(name_file.c_str());
-        argvt[3] = const_cast<char *>(std::to_string(classes).c_str()); // thresholds number
-        std::string name_file_out =
-                "B:\\Projects\\GitProjects\\Graphics\\pictures\\output_pictures\\lab_5_ex\\" + path_prefix +
-                std::string(argvt[3]) + "_" +
-                name;
-        argvt[2] = const_cast<char *>(name_file_out.c_str());
-        if (!read_arguments(argct, argvt)) {
-            return 1;
-        }
-    } else {
-        if (!read_arguments(argc, argv)) {
-            return 1;
-        }
+    if (!read_arguments(argc, argv)) {
+        return 1;
     }
-
     input.input_file_name = input_file_name;
     if (!input.open_input_file()) {
         return 1;
