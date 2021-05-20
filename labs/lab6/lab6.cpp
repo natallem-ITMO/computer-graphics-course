@@ -3,6 +3,7 @@
 #include <vector>
 #include <cmath>
 #include <tuple>
+#include <valarray>
 #include <cassert>
 #include <functional>
 #include <complex>
@@ -162,7 +163,6 @@ struct file_worker {
         if (x >= width || y >= height) {
             x = x % width;
             y = y % height;
-//            return 0;
         }
         return input_buffer[x + y * width];
     }
@@ -198,9 +198,10 @@ file_worker input_2(program_error);
 file_worker output(program_error);
 
 typedef std::complex<double> base;
-static const double PI = atan(1) * 4;
+const double PI = 3.141592653589793238460;
 
-void fft(std::vector<base> &a, bool invert) {
+/*
+void fft(std::vector<base> &a, bool invert, int N) {
     int n = (int) a.size();
     if (n == 1) return;
 
@@ -209,16 +210,62 @@ void fft(std::vector<base> &a, bool invert) {
         a0[j] = a[i];
         a1[j] = a[i + 1];
     }
-    fft(a0, invert);
-    fft(a1, invert);
+    fft(a0, invert, N);
+    fft(a1, invert, N);
 
     double ang = 2 * PI / n * (invert ? -1 : 1);
     base w(1), wn(cos(ang), sin(ang));
     for (int i = 0; i < n / 2; ++i) {
+        if (n == 64){
+            int x = 10;
+        }
         a[i] = a0[i] + w * a1[i];
         a[i + n / 2] = a0[i] - w * a1[i];
         w *= wn;
     }
+}*/
+
+
+void fft(std::vector<base> &x, base w, int p, bool print =false) {
+
+    const size_t N = x.size();
+    if (N <= 1) return;
+
+    // divide
+    std::vector<base> even;
+    std::vector<base> odd;
+
+    for (int i = 0; i <= N / 2; ++i){
+        if (2 * i < x.size()){
+            even.push_back(x[2 * i]);
+        }
+        if (2 * i + 1 < x.size()){
+            odd.push_back(x[2 * i + 1]);
+        }
+    }
+//    if (odd.size() < even.size()){
+//        odd.emplace_back(0);
+//    }
+//    for (int i = 0, j = 0; i < N; i += 2, ++j) {
+//        even[j] = x[i];
+//        odd[j] = x[i + 1];
+//    }
+//     conquer
+    fft(even, w * w, print);
+    fft(odd, w * w, print);
+
+    base cur = 1;
+    for (size_t k = 0; k < N / 2; ++k) {
+        base t = cur * odd[k];
+        x[k] = even[k] + t;
+        x[k + N / 2] = even[k] - t;
+        cur *= w;
+        if (print && k == 1) {
+            std::cout << "N=" << N << " even[0]=" << even[0] << " odd[0]=" << odd[0] << " x[" << k << "]=" << x[k]
+                      << " x[" << k + N / 2 << "]=" << x[k + N / 2] << '\n';
+        }
+    }
+
 }
 
 int find_closest(int x) {
@@ -229,65 +276,52 @@ int find_closest(int x) {
     return cur;
 }
 
-void calc_correlation_fast() {
-    int K = input_1.height;
+void calc_correlation_furie_slow() {
+    int N = input_1.height;
     int M = input_1.width;
-    int N = std::max(K, M);
-    N = find_closest(N);
+//    int N = std::max(K, M);
+//    N = find_closest(N);
+//    M = find_closest(M);
 
-    std::vector<std::vector<base>> r_coefs_1;
-    std::vector<std::vector<base>> r_coefs_2;
-    for (int y = 0; y < N; ++y) {
-        std::vector<base> cur_f_coeffs_1(N, 0);
-        std::vector<base> cur_f_coeffs_2(N, 0);
-        for (int x = 0; x < N; ++x) {
-            cur_f_coeffs_1[x] = (double) input_1.get_color_simple(x, y);
-            cur_f_coeffs_2[x] = (double) input_2.get_color_simple(x, y);
-        }
-        fft(cur_f_coeffs_1, true);
-        fft(cur_f_coeffs_2, true);
-        r_coefs_1.push_back(std::move(cur_f_coeffs_1));
-        r_coefs_2.push_back(std::move(cur_f_coeffs_2));
-    }
-    std::vector<std::vector<base>> f_values_1;
-    std::vector<std::vector<base>> f_values_2;
-    for (int u = 0; u < N; u++) {
-        std::vector<base> cur_r_coeff_1(N, 0);
-        std::vector<base> cur_r_coeff_2(N, 0);
-        for (int y = 0; y < N; ++y) {
-            cur_r_coeff_1[y] = r_coefs_1[y][u];
-            cur_r_coeff_2[y] = r_coefs_2[y][u];
-        }
-        fft(cur_r_coeff_1, true);
-        fft(cur_r_coeff_2, true);
-        f_values_1.push_back(std::move(cur_r_coeff_1));
-        f_values_2.push_back(std::move(cur_r_coeff_2));
-    }
 
-    std::vector<std::vector<base>> q_coefs;
-    for (int u = 0; u < N; ++u) {
-        std::vector<base> cur_coeff_fs(N, 0);
+    std::vector<std::vector<base>> f_values_1(M, std::vector<base>(N, 0));
+    std::vector<std::vector<base>> f_values_2(M, std::vector<base>(N, 0));
+    for (int u = 0; u < M; ++u) {
+        std::cout << "u1 =" << u << " M=" << M << '\n';
         for (int v = 0; v < N; ++v) {
-            cur_coeff_fs[v] = f_values_1[u][v] * std::conj(f_values_2[u][v]);
+            for (int y = 0; y < input_1.height; ++y) {
+                for (int x = 0; x < input_1.width; ++x) {
+                    f_values_1[u][v] += (double) input_1.get_color(x, y) *
+                                        exp(base(0, -2 * PI * u * x / M) +
+                                            base(0, -2 * PI * v * y / N));
+                    f_values_2[u][v] += (double) input_2.get_color(x, y) *
+                                        exp(base(0, -2 * PI * u * x / M) +
+                                            base(0, -2 * PI * v * y / N));
+                }
+            }
         }
-        fft(cur_coeff_fs, false);
-        q_coefs.push_back(std::move(cur_coeff_fs));
     }
-    std::vector<std::vector<base>> Cf1f2;
-    for (int dy = 0; dy < N; ++dy) {
-        std::vector<base> cur_q_coefs(N, 0);
-        for (int u = 0; u < N; ++u) {
-            cur_q_coefs[u] = q_coefs[u][dy];
+    std::vector<std::vector<base>> Cf1f2(N, std::vector<base>(M, 0));
+    for (int dx = 0; dx < M; ++dx) {
+        std::cout << "dx =" << dx << " M=" << M << "\n";
+
+        for (int dy = 0; dy < N; ++dy) {
+            for (int u = 0; u < M; ++u) {
+                for (int v = 0; v < N; ++v) {
+                    Cf1f2[dy][dx] += f_values_1[u][v] * std::conj(f_values_2[u][v]) *
+                                     exp(base(0, 2 * PI * u * dx / M) +
+                                         base(0, 2 * PI * v * dy / N));
+                }
+            }
+
         }
-        fft(cur_q_coefs, false);
-        Cf1f2.push_back(std::move(cur_q_coefs));
     }
     auto mmax = Cf1f2[0][0].real();
     auto mmin = Cf1f2[0][0].real();
     std::complex<int> max_p(0, 0);
     std::complex<int> min_p(0, 0);
 
-    for (int dy = 0; dy < K; ++dy) {
+    for (int dy = 0; dy < N; ++dy) {
         for (int dx = 0; dx < M; ++dx) {
             double d = Cf1f2[dy][dx].real();
             if (d < mmin) {
@@ -301,33 +335,157 @@ void calc_correlation_fast() {
         }
     }
 
-    for (int y = 0; y < K; ++y) {
-        for (int x = 0; x < M; ++x) {
-            int xx = x;
-            int yy = y;
-            xx += M / 2;
-            yy+= K / 2;
-            double v = Cf1f2[yy % K][xx % M].real();
+    for (int y = 0; y < input_1.height; ++y) {
+        for (int x = 0; x < input_1.width; ++x) {
+            double v = Cf1f2[y][x].real();
             double cur_part = (v - mmin) / (mmax - mmin);
             cur_part *= 255;
             output.output << (unsigned char) (cur_part);
 
         }
     }
-   /* for (int y = 0; y < input_1.height; y++) {
-        for (int x = 0; x < input_1.width; ++x) {
-            int xx = x;
-            x += M / 2;
-            int yy = y;
-            yy += K / 2;
-            double v = Cf1f2[yy  % K][xx % M].real();
-            double cur_part = (v - mmin) / (mmax - mmin);
-            cur_part *= 255;
-            output.output << (unsigned char) (cur_part);
-        }
-    }*/
+    int t = 10;
+
 }
 
+void calc_correlation_fast() {
+    std::ofstream output_f_1(R"(B:\Projects\GitProjects\Graphics\debugging\f_values_1.txt)");
+    int M = 3; // input_1.width;
+    int N = 2; // input_1.height;
+//    int N = std::max(K, M);
+//    int Ncl = find_closest(N);
+//    int Mcl = find_closest(M);
+
+    std::vector<std::vector<base>> r_coefs_1(N, std::vector<base>(M, 0));
+    std::vector<std::vector<base>> r_coefs_2(N, std::vector<base>(M, 0));
+    base tau = exp(base(0, -2 * PI / M));
+    for (int y = 0; y < N; ++y) {
+        for (int x = 0; x < M; ++x) {
+            r_coefs_1[y][x] = base(input_1.get_color_simple(x, y), 0);
+            r_coefs_2[y][x] = (double) input_2.get_color_simple(x, y);
+        }
+        fft(r_coefs_1[y], tau,(y == 0));
+        fft(r_coefs_2[y], tau);
+    }
+    int y = 0;
+//    base tau = exp(base(0, -2 * PI / M));
+    base cur_cur_tau = 1;
+    output_f_1 << "Coefs:\n";
+    for (int u = 0; u < M; ++u) {
+        base val(0);
+        base val2(0);
+        base cur_tau = 1;
+        for (int x = 0; x < M; ++x) {
+            val += (double) input_1.get_color(x, y) * cur_tau;
+            auto sdf = u * x * -2 * PI / M;
+            auto sdfdfs = -PI;
+            base ttt = exp(u * x * -2 * PI / M);
+            val2 += base(input_1.get_color(x, y), 0) * exp(base(0, u * x * -2 * PI / M));
+            cur_tau *= cur_cur_tau;
+        }
+        cur_cur_tau *= tau;
+        output_f_1 << "origin<->val<->val2 : " << r_coefs_1[y][u] << "<->" << val << "<->" << val2 << '\n';
+    }
+    output_f_1 << "\n";
+
+    /*
+       std::vector<std::vector<base>> f_values_1(M, std::vector<base>(Ncl, 0));
+       std::vector<std::vector<base>> f_values_2(M, std::vector<base>(Ncl, 0));
+       for (int u = 0; u < M; u++) {
+           for (int y = 0; y < N; ++y) {
+               f_values_1[u][y] = r_coefs_1[y][u];
+               f_values_2[u][y] = r_coefs_2[y][u];
+           }
+           fft(f_values_1[u], tau);
+           fft(f_vas_2[u], tau);
+       }
+
+       /* output_f_1 << "Table:\n";
+        *//* for (auto & t : f_values_1){
+         for (auto & k : t){
+             output_f_1 << k << " ";
+         }
+         output_f_1 << "\n";
+     }*//*
+    int cur_w = 10;
+    int cur_h = 10;
+    for (int i = 0; i < cur_h; ++i) {
+        for (int j = 0; j < cur_w; ++j) {
+            output_f_1 << f_values_1[i][j] << " ";
+        }
+        output_f_1 << "\n";
+    }
+
+    output_f_1 << "Table orginal:\n";
+    for (int v = 0; v < cur_h; ++v) {
+        for (int u = 0; u < cur_w; ++u) {
+            base cur(0);
+            for (int y = 0; y < input_1.height; ++y) {
+                for (int x = 0; x < input_1.width; ++x) {
+                    cur += (double) input_1.get_color(x, y) *
+                           exp(base(0, -2 * PI * u * x / input_1.width) + base(0, -2 * PI * v * y / input_1.height));
+                }
+
+            }
+            output_f_1 << cur << " ";
+        }
+        output_f_1 << "\n";
+    }*/
+
+
+    /* std::vector<std::vector<base>> q_coefs;
+     for (int u = 0; u < M; ++u) {
+         std::vector<base> cur_coeff_fs(Ncl, 0);
+         for (int v = 0; v < N; ++v) {
+             cur_coeff_fs[v] = f_values_1[u][v] * std::conj(f_values_2[u][v]);
+         }
+         fft(cur_coeff_fs, false, N);
+         q_coefs.push_back(std::move(cur_coeff_fs));
+     }
+
+
+     std::vector<std::vector<base>> Cf1f2;
+     for (int dy = 0; dy < N; ++dy) {
+         std::vector<base> cur_q_coefs(Mcl, 0);
+         for (int u = 0; u < M; ++u) {
+             cur_q_coefs[u] = q_coefs[u][dy];
+         }
+         fft(cur_q_coefs, false, M);
+         Cf1f2.push_back(std::move(cur_q_coefs));
+     }
+     auto mmax = Cf1f2[0][0].real();
+     auto mmin = Cf1f2[0][0].real();
+     std::complex<int> max_p(0, 0);
+     std::complex<int> min_p(0, 0);
+
+     for (int dy = 0; dy < N; ++dy) {
+         for (int dx = 0; dx < M; ++dx) {
+             double d = Cf1f2[dy][dx].real();
+             if (d < mmin) {
+                 mmin = d;
+                 min_p = std::complex<int>(dx, dy);
+             }
+             if (d > mmax) {
+                 mmax = d;
+                 max_p = std::complex<int>(dx, dy);
+             }
+         }
+     }
+
+     for (int y = 0; y < input_1.height; ++y) {
+         for (int x = 0; x < input_1.width; ++x) {
+ //            int xx = x;
+ //            int yy = y;
+ //            xx += M / 2;
+ //            yy+= N / 2;
+             double v = Cf1f2[y][x].real();
+             double cur_part = (v - mmin) / (mmax - mmin);
+             cur_part *= 255;
+             output.output << (unsigned char) (cur_part);
+
+         }
+     }*/
+}
 
 void calc_correlation() {
     int max_y_1 = 0;
@@ -465,15 +623,17 @@ bool read_arguments(int argc, char *argv[]) {
 
 int main(int argc, char *argv[]) {
     std::vector<std::tuple<std::string, std::string, std::string>> names = {
-            {"chair_1.pgm", "chair_2.pgm", "chair.pgm"},
-            {"circle1.pgm", "circle2.pgm", "circle.pgm"},
-            {"chair_1.pgm", "chair_2.pgm", "chair_fft.pgm"},
-            {"circle1.pgm", "circle2.pgm", "circle_fft.pgm"},
+            {"chair_1.pgm",             "chair_2.pgm",             "chair.pgm"},
+            {"circle1.pgm",             "circle2.pgm",             "circle.pgm"},
+            {"chair_1.pgm",             "chair_2.pgm",             "chair_fft.pgm"},
+            {"circle1.pgm",             "circle2.pgm",             "circle_fft.pgm"},
+            {"small_copy\\chair_1.pgm", "small_copy\\chair_2.pgm", "small_chair.pgm"},
+            {"small_copy\\chair_1.pgm", "small_copy\\chair_2.pgm", "small_chair_fast.pgm"},
 //            {"circle1.pgm", "circle2.pgm", "circle_fft_origin.pgm"},
     };
     bool testing = true;
-//    int i = names.size() - 1;
-    int i = 2;
+    int i = names.size() - 1;
+//    int i = 2;
     double coef_w = 3;
     double coef_h = 4;
     if (testing) {
@@ -529,6 +689,7 @@ int main(int argc, char *argv[]) {
     output.set_header_for_output_file(input_1.is_P5, input_1.width, input_1.height, 255);
     output.write_header();
     calc_correlation_fast();
+//    calc_correlation_furie_slow();
 //    calc_correlation();
     return 0;
 }
