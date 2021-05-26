@@ -1,5 +1,6 @@
 #include <iostream>
 #include <fstream>
+#include <utility>
 #include <vector>
 #include <cmath>
 #include <tuple>
@@ -12,11 +13,6 @@
 #include <functional>
 #include "zlib.h"
 
-static int max_w = 40;
-static int max_h = 20;
-static int cur_w = 0;
-static int cur_h = 0;
-
 std::string input_file_name;
 std::string output_file_name;
 using uchar = unsigned char;
@@ -25,16 +21,6 @@ int byte_in_pixel;
 
 struct file_worker {
     explicit file_worker() = default;
-
-    bool open_input_file() {
-        assert(!input_file_name.empty());
-        input.open(input_file_name, std::ios::binary);
-        if (!input.is_open()) {
-            std::cerr << "Failed to open input file \"" << input_file_name << "\"\n";
-            return false;
-        }
-        return true;
-    }
 
     bool open_output_file() {
         output.open(output_file_name, std::ios::binary);
@@ -62,66 +48,6 @@ struct file_worker {
         }
     }
 
-    bool read_header() {
-        std::string format;
-        input >> format;
-        if (format != "P5" && format != "P6") {
-            std::cerr << "Input image in file \"" << input_file_name << "\" is not in format P5 or P6\n";
-            return false;
-        }
-        if (format != "P5") {
-            return false;
-        }
-        input >> width;
-        if (width == 0) {
-            std::cerr << "Width of input image in file \"" << input_file_name << "\" is incorrect (= 0)\n";
-            return false;
-        }
-        input >> height;
-        if (height == 0) {
-            std::cerr << "Height of input image in file \"" << input_file_name << "\" is incorrect (= 0)\n";
-            return false;
-        }
-        int temp;
-        input >> temp;
-        max_color_size = temp;
-        if (temp <= 0) {
-            std::cerr << "Maximum color number of input image in file \"" << input_file_name
-                      << "\" is incorrect (<= 0)\n";
-            return false;
-        }
-        if (max_color_size != 255) {
-            std::cerr << "Maximum color number of input image in file \"" << input_file_name
-                      << "\" should be 255\n";
-            return false;
-        }
-        input.get();
-        size = width * height;
-        number_of_pixels = (is_P5) ? size : size * 3;
-        return true;
-    }
-
-    bool read_buffer() {
-        try {
-            input_buffer = new char[number_of_pixels];
-            input.read(input_buffer, number_of_pixels);
-            if (input.gcount() != number_of_pixels) {
-                std::cerr << "Couldn't read all bytes of input image from file \'" << input_file_name
-                          << "\' to buffer\n";
-                return false;
-            }
-        } catch (const std::bad_alloc &e) {
-            std::cerr << "Allocation for input image from file \'" << input_file_name << "\' buffer failed: "
-                      << e.what() << '\n';
-            return false;
-        }
-        return true;
-    }
-
-    uchar get_color(int x, int y) {
-        return input_buffer[x + y * width];
-    }
-
     void write_header() {
         assert(output.is_open());
         output << (is_P5 ? "P5" : "P6") << '\n';
@@ -129,7 +55,6 @@ struct file_worker {
         output << std::to_string(max_color_size) << '\n';
     }
 
-    std::string input_file_name;
     std::string output_file_name;
 
     char *input_buffer = nullptr;
@@ -139,8 +64,6 @@ struct file_worker {
     size_t width;
     size_t height;
     size_t max_color_size;
-    size_t size;
-    size_t number_of_pixels;
 
     bool is_P5 = true;
 };
@@ -201,7 +124,7 @@ struct chunk {
 
     bool get_bit() {
         if (pos_in_byte == 8) {
-            cur_byte = get_byte();
+            cur_byte = (uchar) get_byte();
             pos_in_byte = 0;
         }
         return cur_byte & (1 << (pos_in_byte++));
@@ -217,10 +140,8 @@ struct chunk {
 
     int get_n_bits_reversed_order(int n) {
         int res = 0;
-        std::string s;
         for (int i = 0; i < n; i++) {
             bool ch = get_bit();
-            s += (ch) ? '1' : '0';
             res |= (ch << i);
         }
         return res;
@@ -228,12 +149,10 @@ struct chunk {
 
     int get_n_bits_direct_order(int n) {
         int res = 0;
-        std::string s;
         for (int i = 0; i < n; i++) {
             bool chh = get_bit();
             res <<= 1;
             res |= chh;
-            s += (chh) ? '1' : '0';
         }
         return res;
     }
@@ -244,7 +163,7 @@ struct chunk {
     char *data = nullptr;
     uchar CRC[4];
     size_t pos = 0;
-    char cur_byte;
+    uchar cur_byte;
     int pos_in_byte = 8;
 };
 
@@ -295,11 +214,11 @@ struct zlib_decoder {
 
     bool decode_no_compression() {
         ch.pos_in_byte = 8;
-        char b1 = ch.get_byte();
-        char b2 = ch.get_byte();
+        uchar b1 = ch.get_byte();
+        uchar b2 = ch.get_byte();
         int length = (b1 << 8) | b2;
-        char b1c = ch.get_byte();
-        char b2c = ch.get_byte();
+        uchar b1c = ch.get_byte();
+        uchar b2c = ch.get_byte();
         assert((b1c & b1) == 0b0000'0000'0000'0000);
         assert((b2c & b2) == 0b0000'0000'0000'0000);
         assert((b1c | b1) == 0b1111'1111'1111'1111);
@@ -389,21 +308,14 @@ struct zlib_decoder {
                 int table_shift = get_shift();
                 int shift = dist_code_table[table_shift].second;
                 add_bits = dist_code_table[table_shift].first;
-                int prev_shift = shift;
-                int k;
                 if (add_bits != 0) {
-                    k = ch.get_n_bits_reversed_order(add_bits);
-                    shift += k;
+                    shift += ch.get_n_bits_reversed_order(add_bits);;
                 }
-//                std::cout << " length = " << length << " dist = " << shift;
                 size_t initial_buffer_pos = output_buffer_pos;
                 size_t shifted_position = initial_buffer_pos - shift;
                 for (int j = 0; j < length; j++) {
                     if (shifted_position == initial_buffer_pos) {
                         shifted_position = initial_buffer_pos - shift;
-                    }
-                    if (cur_w == 40 && cur_h == 19) {
-                        int x = 10;
                     }
                     if (output_buffer_pos >= max_buffer_size) {
                         break;
@@ -569,12 +481,12 @@ struct zlib_decoder {
         int number_of_lengths_and_symbols = 257 + HLIT;
         int HDIST = ch.get_n_bits_reversed_order(5);
         int number_of_distances = 1 + HDIST;
-        int HCLEN = ch.get_n_bits_reversed_order(4);//todo reverse?
+        int HCLEN = ch.get_n_bits_reversed_order(4);
         int number_of_lengths_for_first_huffman_tree = HCLEN + 4;
         std::vector<int> commands = {16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15};
         std::map<int, std::set<int>> tree_mapa;
         for (int i = 0; i < number_of_lengths_for_first_huffman_tree; ++i) {
-            int k = ch.get_n_bits_reversed_order(3); // todo reversed
+            int k = ch.get_n_bits_reversed_order(3);
             tree_mapa[k].insert(commands[i]);
         }
         std::unique_ptr<node> root1 = create_Huffman_tree(tree_mapa);
@@ -600,35 +512,10 @@ struct zlib_decoder {
     };
 
     void write_to_buffer(uchar chh) {
-        static int kk = 0;
-        const static bool debug_write_decoded_bytes = false; // todo delete
-        if (debug_write_decoded_bytes) {
-            static std::ofstream dout("B:\\Projects\\GitProjects\\Graphics\\labs\\lab7\\debug.txt"); // todo delete
-            if (cur_w == 0) {
-                dout << "FILTER " << (int) chh << "\n";
-                cur_w++;
-            } else {
-                if (byte_in_pixel == 1) {
-                    dout << "color " << (int) chh << " pos w=" << cur_w++ << " pos h=" << cur_h << "\n";
-                } else {
-                    dout << "color " << (int) chh << " pos w[" << kk++ << "]=" << cur_w << " pos h=" << cur_h
-                         << "\n";
-                    if (kk == byte_in_pixel) {
-                        ++cur_w;
-                        kk = 0;
-                    }
-                }
-                dout.flush();
-                if (cur_w == max_w + 1) {
-                    cur_w = 0;
-                    ++cur_h;
-                }
-            }
-        }
         if (output_buffer_pos >= max_buffer_size) {
             throw std::out_of_range("out of bounds for output image decoded buffer\n");
         }
-        output_buffer[output_buffer_pos++] = chh;
+        output_buffer[output_buffer_pos++] = (char) chh;
     }
 
     chunk &ch;
@@ -644,7 +531,7 @@ struct zlib_decoder {
 
 struct png_decoder {
 
-    png_decoder(std::string file_name) : file_name(file_name) {};
+    png_decoder(std::string file_name) : file_name(std::move(file_name)) {};
 
     bool open_file() {
         assert(!file_name.empty());
@@ -660,10 +547,6 @@ struct png_decoder {
         uchar signature[] = {137, 80, 78, 71, 13, 10, 26, 10};
         for (int i = 0; i < 8; ++i) {
             uchar c = fin.get();
-//            fin >> c;
-            char k = char(0b11110000 & c);
-            k >>= 4;
-            char g = (char) (0b00001111 & c);
             if (c != signature[i]) {
                 std::cerr << "Check for signature in input png file failed on position " << i << "\n";
                 return false;
@@ -686,11 +569,9 @@ struct png_decoder {
         for (int i = 3; i >= 0; --i) {
             width = width | (ch.get_byte() << (8 * i));
         }
-        max_w = width;
         for (int i = 3; i >= 0; --i) {
-            height = height | ((ch.get_byte()) << (8 * i));
+            height = height | (ch.get_byte() << (8 * i));
         }
-        max_h = height;
         if (width * height == 0) {
             std::cerr << "Unsupported size (shouldn't be 0)\n";
             return false;
@@ -737,8 +618,6 @@ struct png_decoder {
         bool is_end = false;
 
         while (true) {
-//            std::cout << "Read IDAT " << v.back().length << "\n"; // todo delete
-//            std::cout.flush();
             v.emplace_back();
             v.back().read(fin);
             if (v.back().type != "IDAT") {
@@ -775,7 +654,7 @@ struct png_decoder {
         size_t input_buffer_pos = 0;
         for (auto &cur_IDAT : v) {
             for (int i = 0; i < cur_IDAT.length; ++i) {
-                input_buffer[input_buffer_pos++] = cur_IDAT.get_byte();
+                input_buffer[input_buffer_pos++] = (char) cur_IDAT.get_byte();
             }
         }
         chunk ch;
@@ -803,7 +682,7 @@ struct png_decoder {
         if (pos >= buffer_size) {
             throw std::out_of_range("out of range in output buffer for decoded data\n");
         }
-        return (uchar) buffer[pos++]; // todo may delete?
+        return (uchar) buffer[pos++];
     }
 
     static uchar none_filter(uchar x, uchar a, uchar b, uchar c) {
@@ -901,54 +780,10 @@ bool read_arguments(int argc, char *argv[]) {
     return true;
 }
 
-void gen_image() {
-    file_worker wo;
-    wo.output_file_name = "B:\\Projects\\GitProjects\\Graphics\\pictures\\source_images\\small_rectangle.ppm";
-    int w = 40;
-    int h = 20;
-    wo.open_output_file();
-    wo.set_header_for_output_file(false, w, h, 255);
-    wo.write_header();
-
-    for (int i = 0; i < h; ++i) {
-        for (int j = 0; j < w; ++j) {
-            wo.output << uchar(j * 30) << uchar(i * 50) << uchar((j + i) * 10);
-        }
-    }
-}
 
 int main(int argc, char *argv[]) {
-//    testing();
-//    gen_image();
-//    return 0;
-    bool testing = true;
-    std::vector<std::string> names = {
-            "seeds_no_alpha",
-            "sm_rec",
-            "phoenix",
-            "phoenix-feather",
-            "road_woman",
-            "archive\\testing\\1"
-//            "site_ex",
-    };
-    int i = names.size() - 1;
-    if (testing) {
-        std::string name = names[i];
-        int argct = 3;
-        char **argvt = new char *[argct];
-        argvt[0] = "lab3.exe";
-        std::string name_file = "B:\\Projects\\GitProjects\\Graphics\\pictures\\source_images\\" + name + ".png";
-        argvt[1] = const_cast<char *>(name_file.c_str());
-        std::string name_file_out =
-                "B:\\Projects\\GitProjects\\Graphics\\pictures\\output_pictures\\" + name + ".ppm";
-        argvt[2] = const_cast<char *>(name_file_out.c_str());
-        if (!read_arguments(argct, argvt)) {
-            return 1;
-        }
-    } else {
-        if (!read_arguments(argc, argv)) {
-            return 1;
-        }
+    if (!read_arguments(argc, argv)) {
+        return 1;
     }
     png_decoder decoder(input_file_name);
     if (!decoder.open_file()) {
