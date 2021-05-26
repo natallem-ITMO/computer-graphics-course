@@ -207,7 +207,7 @@ struct chunk {
         return cur_byte & (1 << (pos_in_byte++));
     }
 
-    char get_byte() {
+    uchar get_byte() {
         assert(pos_in_byte == 8);
         if (pos >= length) {
             throw std::out_of_range("no readable elements in chunk");
@@ -255,13 +255,13 @@ struct zlib_decoder {
               max_buffer_size(max_buffer_size) {}
 
     bool read_zlib_header() {
-        int CMF = ch.get_byte();
+        uchar CMF = ch.get_byte();
         CM = 0b00001111 & CMF;
         if (CM != 8) {
             std::cerr << "CM in zlib header != 8\n";
             return false;
         }
-        unsigned char FLG = ch.get_byte();
+        uchar FLG = ch.get_byte();
         FLEVEL = FLG & 0b11000000;
         FDICT = FLG & 0b00100000;
         FCHECK = FLG & 0b00011111;
@@ -374,7 +374,6 @@ struct zlib_decoder {
                 {13, 16385},
                 {13, 24577},
         };
-        std::string debug_res;
         while (true) {
             int actual_value = get_command();
             if (actual_value == 256) {
@@ -601,10 +600,10 @@ struct zlib_decoder {
     };
 
     void write_to_buffer(uchar chh) {
-        static std::ofstream dout("B:\\Projects\\GitProjects\\Graphics\\labs\\lab7\\debug.txt");
         static int kk = 0;
-        static bool write_decoded_bytes = true;
-        if (write_decoded_bytes) {
+        const static bool debug_write_decoded_bytes = false; // todo delete
+        if (debug_write_decoded_bytes) {
+            static std::ofstream dout("B:\\Projects\\GitProjects\\Graphics\\labs\\lab7\\debug.txt"); // todo delete
             if (cur_w == 0) {
                 dout << "FILTER " << (int) chh << "\n";
                 cur_w++;
@@ -689,7 +688,7 @@ struct png_decoder {
         }
         max_w = width;
         for (int i = 3; i >= 0; --i) {
-            height = height | (ch.get_byte() << (8 * i));
+            height = height | ((ch.get_byte()) << (8 * i));
         }
         max_h = height;
         if (width * height == 0) {
@@ -726,7 +725,6 @@ struct png_decoder {
     }
 
     bool read_all_IDAT() {
-
         std::vector<chunk> v(1);
         v[0].read(fin);
         while (v[0].type != "IDAT") {
@@ -739,21 +737,22 @@ struct png_decoder {
         bool is_end = false;
 
         while (true) {
-            std::cout << "Read IDAT " << v.back().length << "\n";
+//            std::cout << "Read IDAT " << v.back().length << "\n"; // todo delete
+//            std::cout.flush();
             v.emplace_back();
             v.back().read(fin);
             if (v.back().type != "IDAT") {
-                if (v.back().type == "IEND"){
+                if (v.back().type == "IEND") {
                     is_end = true;
                 }
                 v.pop_back();
                 break;
             }
         }
-        while (!is_end){
+        while (!is_end) {
             chunk ch;
             ch.read(fin);
-            if (ch.type == "IEND"){
+            if (ch.type == "IEND") {
                 is_end = true;
             }
             if (ch.type == "IDAT") {
@@ -762,7 +761,7 @@ struct png_decoder {
                 return false;
             }
         }
-        char * input_buffer = nullptr;
+        char *input_buffer = nullptr;
         size_t input_buffer_size = 0;
         for (auto &i : v) {
             input_buffer_size += i.length;
@@ -820,7 +819,7 @@ struct png_decoder {
     }
 
     static uchar average_filter(uchar x, uchar a, uchar b, uchar c) {
-        return x + (unsigned char) floor(((double) a + b) / 2.);
+        return x + (uchar) floor(((double) a + b) / 2.);
     }
 
     static uchar paeth_filter(uchar x, uchar a, uchar b, uchar c) {
@@ -902,61 +901,6 @@ bool read_arguments(int argc, char *argv[]) {
     return true;
 }
 
-void testing() {
-    std::vector<std::string> res = {"0x15", "0x8d", "0x51", "0x0a", "0xc0", "0x20", "0x0c", "0x43", "0xff", "0x3d",
-                                    "0x45", "0xae", "0x56", "0x67", "0xdd", "0x8a", "0x5d", "0x0b", "0xd5", "0x21",
-                                    "0xde", "0x7e", "0x0a", "0xf9", "0x08", "0x21", "0x2f", "0xc9", "0x4a", "0x57",
-                                    "0xcb", "0x12", "0x05", "0x5d", "0xec", "0xde", "0x82", "0x18", "0xc6", "0xc3",
-                                    "0x28", "0x4c", "0x05", "0x5e", "0x61", "0x72", "0x3f", "0x23", "0x0d", "0x6a",
-                                    "0x7c", "0xe2", "0xce", "0xc8", "0xe1", "0x8d", "0x0d", "0x73", "0x77", "0x3b",
-                                    "0xc8", "0x0a", "0x94", "0x29", "0x36", "0xe3", "0xa8", "0xba", "0x12", "0xa9",
-                                    "0x62", "0xf9", "0x17", "0x50", "0xa9", "0x9c", "0xb6", "0xc3", "0xe4", "0x60",
-                                    "0xb8", "0xe9", "0xc2", "0x24", "0x19", "0xe7", "0xa1", "0x7a", "0xec", "0x2d",
-                                    "0xe9", "0x78", "0xfd", "0x65", "0x1b", "0x07", "0xa5", "0x90", "0xce", "0xe9",
-                                    "0x07"};
-    std::vector<std::string> res2 = {"05", "A0", "61", "0B", "00", "00", "18", "86", "2E", "68", "8F", "EA", "D9", "3D",
-                                     "AE", "C7", "B4", "9B", "10", "E8", "FF", "40", "21", "07", "14", "56", "5A",
-                                     "DA"};
-
-    std::vector<std::string> res3 = {"63", "F8", "3F", "93", "E1", "3F", "03", "C3", "CC", "FF", "20", "1A", "C8", "00",
-                                     "22", "24", "0E", "58", "12", "85", "33", "D3", "F8", "3F", "03", "32", "07", "44",
-                                     "03", "00", "AA", "05", "23", "77"};
-    int k = 0;
-    char *buffer = new char[res.size()];
-    for (int i = 0; i < res.size(); ++i) {
-        std::string s = res[i];
-        std::stringstream ss;
-        ss << std::hex << s;
-        unsigned n;
-        ss >> n;
-        buffer[i] = n;
-    }
-    chunk ch;
-    ch.data = buffer;
-    ch.length = res.size();
-    size_t max_output_buffer_size = res.size() * 100;
-    char *output_buffer = new char[max_output_buffer_size];
-    size_t pos = 0;
-    zlib_decoder decoder(ch, output_buffer, pos, max_output_buffer_size);
-    decoder.decode_data();
-    int gg = 0;
-    std::cout << "\n" << output_buffer;
-
-    /* for (int i = 0; i < 4; i++){
-         std::cout << (int) ((uchar) output_buffer[gg++] )<< "\n";
-         for (int j = 0; j < 4; ++j){
-             for (int t = 0; t < 4; ++t){
-                 std::cout << (int) ((uchar) output_buffer[gg++] )<< " ";
-             }
-             std::cout <<"\n";
-         }
-     }*/
-
-
-//    std::cout << "HERE:\n" << output_buffer;
-
-}
-
 void gen_image() {
     file_worker wo;
     wo.output_file_name = "B:\\Projects\\GitProjects\\Graphics\\pictures\\source_images\\small_rectangle.ppm";
@@ -980,7 +924,11 @@ int main(int argc, char *argv[]) {
     bool testing = true;
     std::vector<std::string> names = {
             "seeds_no_alpha",
-//            "sm_rec",
+            "sm_rec",
+            "phoenix",
+            "phoenix-feather",
+            "road_woman",
+            "archive\\testing\\1"
 //            "site_ex",
     };
     int i = names.size() - 1;
