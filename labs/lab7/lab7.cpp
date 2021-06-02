@@ -11,7 +11,6 @@
 #include <set>
 #include <memory>
 #include <functional>
-#include "zlib.h"
 
 std::string input_file_name;
 std::string output_file_name;
@@ -216,13 +215,16 @@ struct zlib_decoder {
         ch.pos_in_byte = 8;
         uchar b1 = ch.get_byte();
         uchar b2 = ch.get_byte();
+        std::swap(b1, b2);
         int length = (b1 << 8) | b2;
+
         uchar b1c = ch.get_byte();
         uchar b2c = ch.get_byte();
+        std::swap(b1c, b2c);
         assert((b1c & b1) == 0b0000'0000'0000'0000);
         assert((b2c & b2) == 0b0000'0000'0000'0000);
-        assert((b1c | b1) == 0b1111'1111'1111'1111);
-        assert((b2c | b2) == 0b1111'1111'1111'1111);
+        assert((b1c | b1) == (uchar) 0b1111'1111'1111'1111);
+        assert((b2c | b2) == (uchar) 0b1111'1111'1111'1111);
         for (int i = 0; i < length; ++i) {
             write_to_buffer(ch.get_byte());
         }
@@ -795,7 +797,6 @@ int main(int argc, char *argv[]) {
     if (!decoder.read_IHDR()) {
         return 1;
     }
-
     if (!decoder.read_all_IDAT()) {
         return 1;
     }
