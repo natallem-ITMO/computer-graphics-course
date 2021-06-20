@@ -1,14 +1,14 @@
+
 #include <iostream>
 #include <fstream>
 #include <vector>
 #include <cmath>
 #include <tuple>
-#include <valarray>
 #include <cassert>
 #include <complex>
 #include <string>
 
-const bool need_to_transform = true; // for debug only to compare with OpenCV result
+constexpr bool need_to_transform = true; // for debug only to compare with OpenCV result
 int Ncl;
 int Mcl;
 
@@ -285,7 +285,7 @@ void calc_correlation_fast() {
     std::cout << "(" << (max_p.real() + f) % Mcl << "," << (max_p.imag() + g) % Ncl << ")\n";
     for (int y = 0; y < Ncl; ++y) {
         for (int x = 0; x < Mcl; ++x) {
-            if (need_to_transform) {
+            if constexpr (need_to_transform) {
                 double v = Cf1f2[(y + g) % Ncl][(x + f) % Mcl].real();
                 double cur_part = (v - mmin) / (mmax - mmin);
                 cur_part *= 255;
@@ -324,8 +324,45 @@ bool read_arguments(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-    if (!read_arguments(argc, argv)) {
-        return 1;
+    std::vector<std::tuple<std::string, std::string, std::string>> names = {
+            {"chair_1.pgm",                   "chair_2.pgm",                   "chair.pgm"}, // 0
+            {"circle1.pgm",                   "circle2.pgm",                   "here_circle.pgm"}, // 1
+            {"chair_1.pgm",                   "chair_2.pgm",                   "chair_fft.pgm"}, // 2
+            {"circle1.pgm",                   "circle2.pgm",                   "circle_fft.pgm"}, // 3
+            {"small_copy\\chair_1.pgm",       "small_copy\\chair_2.pgm",       "small_chair.pgm"}, // 4
+            {"small_copy\\chair_1.pgm",       "small_copy\\chair_2.pgm",       "small_chair_fast.pgm"}, // 5
+            {"small_copy\\deg2\\chair_1.pgm", "small_copy\\deg2\\chair_2.pgm", "deg2_chair_fast.pgm"}, // 6
+            {"bigger_copy\\chair_1.pgm",      "bigger_copy\\chair_2.pgm",      "deg2_chair_bigger_fast.pgm"}, // 7
+            {"bigger_copy\\circle1.pgm",      "bigger_copy\\circle2.pgm",      "circle_big.pgm"}, // 8
+            {"chair_1.pgm",                   "chair_1.pgm",                   "chair_same.pgm"}, // 9
+            {"roses_1.pgm",                   "roses_2.pgm",                   "roses_same.pgm"}, // 10
+            {"old.pgm",                   "new.pgm",                   "old_new.pgm"}, // 11
+            {"park_1.pgm",                   "park_2.pgm",                   "park_corr.pgm"}, // 12
+//            {"circle1.pgm", "circle2.pgm", "circle_fft_origin.pgm"},
+    };
+    bool testing = true;
+    int i = 12;
+    if (testing) {
+        std::string name_1 = std::get<0>(names[i]);
+        std::string name_2 = std::get<1>(names[i]);
+        std::string result = std::get<2>(names[i]);
+        int argct = 5;
+        char **argvt = new char *[argct];
+        argvt[0] = "lab3.exe";
+        std::string name_file = "B:\\Projects\\GitProjects\\Graphics\\pictures\\input_pictures\\" + name_1;
+        std::string name_file_2 = "B:\\Projects\\GitProjects\\Graphics\\pictures\\input_pictures\\" + name_2;
+        std::string name_file_res = "B:\\Projects\\GitProjects\\Graphics\\pictures\\output_pictures\\" + result;
+        argvt[1] = const_cast<char *>(name_file.c_str());
+        argvt[2] = const_cast<char *>(name_file_2.c_str());
+        argvt[3] = const_cast<char *>(name_file_res.c_str());
+        argvt[4] = "0";
+        if (!read_arguments(argct, argvt)) {
+            return 1;
+        }
+    } else {
+        if (!read_arguments(argc, argv)) {
+            return 1;
+        }
     }
     input_1.input_file_name = input_file_name_1;
     if (!input_1.open_input_file() || !input_1.read_header() || !input_1.read_buffer()) {
@@ -350,4 +387,3 @@ int main(int argc, char *argv[]) {
     calc_correlation_fast();
     return 0;
 }
-
